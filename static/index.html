@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Code Share</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <!-- Scala and Haskell are not in the common bundle -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/scala.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/haskell.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      height: 100%;
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #1e1e1e;
+      color: #d4d4d4;
+      overflow: hidden;
+    }
+
+    /* ── Tabs ─────────────────────────────────────────────── */
+    .tabs {
+      display: flex;
+      align-items: center;
+      height: 44px;
+      padding: 0 12px;
+      gap: 2px;
+      border-bottom: 1px solid #333;
+      flex-shrink: 0;
+    }
+
+    .tab-btn {
+      padding: 6px 16px;
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      font-size: 14px;
+      border-radius: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .tab-btn:hover { color: #ccc; background: #2a2a2a; }
+    .tab-btn.active { color: #fff; background: #2d2d2d; }
+
+    .badge {
+      background: #0078d4;
+      color: #fff;
+      border-radius: 10px;
+      padding: 1px 7px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    .badge.hidden { display: none; }
+
+    /* ── Panels ───────────────────────────────────────────── */
+    .panel { display: none; height: calc(100vh - 44px); }
+    .panel.active { display: flex; flex-direction: column; }
+
+    /* ── Submit tab ───────────────────────────────────────── */
+    .submit-form {
+      padding: 24px;
+      max-width: 800px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .form-row { display: flex; gap: 10px; }
+
+    .form-row input,
+    .form-row select {
+      flex: 1;
+      padding: 8px 12px;
+      background: #2d2d2d;
+      border: 1px solid #3e3e3e;
+      color: #d4d4d4;
+      border-radius: 4px;
+      font-size: 14px;
+      outline: none;
+    }
+    .form-row input:focus,
+    .form-row select:focus { border-color: #0078d4; }
+    .form-row select option { background: #2d2d2d; }
+
+    #code-input {
+      width: 100%;
+      padding: 12px;
+      background: #2d2d2d;
+      border: 1px solid #3e3e3e;
+      color: #d4d4d4;
+      border-radius: 4px;
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 14px;
+      min-height: 280px;
+      resize: vertical;
+      outline: none;
+      line-height: 1.5;
+      tab-size: 4;
+    }
+    #code-input:focus { border-color: #0078d4; }
+
+    .submit-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    #submit-btn {
+      padding: 8px 20px;
+      background: #0078d4;
+      border: none;
+      color: #fff;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 500;
+    }
+    #submit-btn:hover { background: #106ebe; }
+    #submit-btn:disabled { background: #444; cursor: default; }
+
+    #confirmation {
+      font-size: 13px;
+      color: #4ec9b0;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    #confirmation.visible { opacity: 1; }
+
+    /* ── Show tab ─────────────────────────────────────────── */
+    .show-layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .submission-list {
+      width: 210px;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .submission-item {
+      padding: 10px 14px;
+      cursor: pointer;
+      font-size: 13px;
+      color: #999;
+      border-bottom: 1px solid #292929;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .submission-item:hover { background: #2a2a2a; color: #ccc; }
+    .submission-item.selected { background: #1a3a5c; color: #fff; }
+
+    .empty-state {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #555;
+      font-size: 14px;
+    }
+
+    .code-preview {
+      flex: 1;
+      overflow: auto;
+      background: #0d1117;
+    }
+    .code-preview pre { margin: 0; min-height: 100%; }
+    .code-preview pre code.hljs {
+      min-height: 100%;
+      padding: 24px;
+      font-size: 15px;
+      line-height: 1.6;
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+    }
+
+    /* ── Connection status ────────────────────────────────── */
+    #conn-status {
+      position: fixed;
+      bottom: 10px;
+      right: 12px;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      border: 1px solid #333;
+      background: #1e1e1e;
+      color: #555;
+    }
+    #conn-status.connected  { color: #4ec9b0; }
+    #conn-status.disconnected { color: #f48771; }
+  </style>
+</head>
+<body>
+
+<div class="tabs">
+  <button class="tab-btn active" id="tab-submit" onclick="switchTab('submit')">Submit</button>
+  <button class="tab-btn" id="tab-show" onclick="switchTab('show')">
+    Show
+    <span class="badge hidden" id="badge"></span>
+  </button>
+</div>
+
+<div class="panel active" id="panel-submit">
+  <div class="submit-form">
+    <div class="form-row">
+      <input type="text" id="display-name" placeholder="Your name (optional)" autocomplete="off">
+      <select id="language">
+        <option value="java">Java</option>
+        <option value="scala">Scala</option>
+        <option value="python">Python</option>
+        <option value="rust">Rust</option>
+        <option value="haskell">Haskell</option>
+        <option value="typescript">TypeScript</option>
+        <option value="javascript">JavaScript</option>
+        <option value="c">C</option>
+        <option value="cpp">C++</option>
+      </select>
+    </div>
+    <textarea id="code-input" placeholder="Paste your code here…" spellcheck="false"></textarea>
+    <div class="submit-row">
+      <button id="submit-btn" disabled>Submit</button>
+      <span id="confirmation">Submitted ✓</span>
+    </div>
+  </div>
+</div>
+
+<div class="panel" id="panel-show">
+  <div class="show-layout">
+    <div class="submission-list" id="submission-list"></div>
+    <div class="empty-state" id="empty-state">No submissions yet</div>
+    <div class="code-preview" id="code-preview" style="display:none">
+      <pre><code id="code-display"></code></pre>
+    </div>
+  </div>
+</div>
+
+<div id="conn-status" class="disconnected">Connecting…</div>
+
+<script>
+  // ── State ──────────────────────────────────────────────────
+  const submissions = [];
+  let selectedIdx   = -1;
+  let activeTab     = 'submit';
+  let badgeCount    = 0;
+
+  // ── Tab switching ──────────────────────────────────────────
+  function switchTab(tab) {
+    activeTab = tab;
+    ['submit', 'show'].forEach(t => {
+      document.getElementById(`tab-${t}`).classList.toggle('active', t === tab);
+      document.getElementById(`panel-${t}`).classList.toggle('active', t === tab);
+    });
+    if (tab === 'show') {
+      badgeCount = 0;
+      document.getElementById('badge').classList.add('hidden');
+    }
+  }
+
+  // ── WebSocket ──────────────────────────────────────────────
+  const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  let ws = null;
+
+  function connect() {
+    ws = new WebSocket(`${wsProto}//${location.host}/ws`);
+
+    ws.addEventListener('open', () => {
+      const el = document.getElementById('conn-status');
+      el.textContent = 'Connected';
+      el.className = 'connected';
+      document.getElementById('submit-btn').disabled = false;
+    });
+
+    ws.addEventListener('close', () => {
+      const el = document.getElementById('conn-status');
+      el.textContent = 'Reconnecting…';
+      el.className = 'disconnected';
+      document.getElementById('submit-btn').disabled = true;
+      setTimeout(connect, 1500);
+    });
+
+    ws.addEventListener('message', ({ data }) => {
+      const sub = JSON.parse(data);
+      sub.seq = submissions.length + 1;
+      submissions.push(sub);
+      appendListItem(sub);
+      if (submissions.length === 1) showSubmission(0);
+      if (activeTab !== 'show') {
+        badgeCount++;
+        const badge = document.getElementById('badge');
+        badge.textContent = badgeCount;
+        badge.classList.remove('hidden');
+      }
+    });
+  }
+
+  // ── Submission list ────────────────────────────────────────
+  function appendListItem(sub) {
+    const item = document.createElement('div');
+    item.className = 'submission-item';
+    item.dataset.idx = sub.seq - 1;
+    item.textContent = sub.name ? `${sub.seq} — ${sub.name}` : String(sub.seq);
+    item.addEventListener('click', () => showSubmission(sub.seq - 1));
+    document.getElementById('submission-list').appendChild(item);
+  }
+
+  function showSubmission(idx) {
+    selectedIdx = idx;
+    document.querySelectorAll('.submission-item').forEach(el =>
+      el.classList.toggle('selected', Number(el.dataset.idx) === idx)
+    );
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('code-preview').style.display = '';
+
+    const sub = submissions[idx];
+    const codeEl = document.getElementById('code-display');
+    codeEl.removeAttribute('data-highlighted');
+    codeEl.className = `language-${sub.language}`;
+    codeEl.textContent = sub.code;
+    hljs.highlightElement(codeEl);
+  }
+
+  // ── localStorage ───────────────────────────────────────────
+  const nameInput = document.getElementById('display-name');
+  const langSelect = document.getElementById('language');
+
+  nameInput.value  = localStorage.getItem('codeshare-name') || '';
+  langSelect.value = localStorage.getItem('codeshare-lang') || 'python';
+
+  nameInput.addEventListener('input',  () => localStorage.setItem('codeshare-name', nameInput.value));
+  langSelect.addEventListener('change', () => localStorage.setItem('codeshare-lang', langSelect.value));
+
+  // ── Submit ─────────────────────────────────────────────────
+  document.getElementById('submit-btn').addEventListener('click', () => {
+    const code = document.getElementById('code-input').value;
+    if (!code.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
+
+    ws.send(JSON.stringify({
+      name:     nameInput.value.trim() || null,
+      language: langSelect.value,
+      code,
+    }));
+
+    document.getElementById('code-input').value = '';
+
+    const conf = document.getElementById('confirmation');
+    conf.classList.add('visible');
+    setTimeout(() => conf.classList.remove('visible'), 2000);
+  });
+
+  // ── Init ───────────────────────────────────────────────────
+  connect();
+</script>
+</body>
+</html>
